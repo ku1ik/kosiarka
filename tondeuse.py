@@ -56,6 +56,7 @@ class lawn:
 
         self.grass = ';'
         self.cut_grass = ','
+        self.height_chars = ['.', ',', ';', '#']
 
         # Regrowth tuning (seconds).
         self.regrow_base = 6.0
@@ -74,22 +75,42 @@ class lawn:
         self.cut_grass_attr = curses.color_pair(2) | curses.A_DIM
         # Mower motor is red and bold to stand out.
         self.motor_attr = curses.color_pair(3) | curses.A_BOLD
+        # Visual levels for grass height (shortest -> tallest).
+        self.height_attrs = [
+            curses.color_pair(2) | curses.A_DIM,  # .
+            curses.color_pair(2),                  # ,
+            curses.color_pair(2) | curses.A_BOLD,  # ;
+            curses.color_pair(2) | curses.A_BOLD,  # #
+        ]
 
         (self.garden_h, self.garden_w) = self.term.getmaxyx()
         self.mower_size = 4
 
         self.init_lawn()
 
-        # Track when each cell was last cut (-1 means uncut grass).
-        self.cut_times = [
-            [-1.0 for _ in range(self.pad_w)]
+        # Track height and regrowth timing per cell.
+        self.heights = [
+            [3 for _ in range(self.pad_w)]
             for _ in range(self.pad_h)
         ]
+        self.last_change = [
+            [0.0 for _ in range(self.pad_w)]
+            for _ in range(self.pad_h)
+        ]
+        self.regrow_delay = [
+            [self.regrow_base for _ in range(self.pad_w)]
+            for _ in range(self.pad_h)
+        ]
+        for y in range(self.pad_h):
+            for x in range(self.pad_w):
+                jitter_seed = (y * 1315423911 + x * 2654435761) & 0xFFFF
+                jitter = (jitter_seed / 65535.0) * self.regrow_jitter
+                self.regrow_delay[y][x] = self.regrow_base + jitter
         self.regrow_cursor = 0
 
         # paint unmowed lawn
-        # Fill the whole pad with grass using the grass color attribute.
-        self.scr.bkgd(ord(self.grass),self.grass_attr)
+        # Fill the whole pad with tall grass.
+        self.scr.bkgd(ord(self.height_chars[3]), self.height_attrs[3])
         self.refresh_screen()
 
         # set some curses parameters
@@ -131,11 +152,9 @@ class lawn:
         '''paint a blade of mowed grass if the mowing succeeds'''
         
         if self.miss_permyriad == 0 or randint(0,10000) > self.miss_permyriad:
-            self.scr.addstr(y, x, self.cut_grass, self.cut_grass_attr)
-            self.cut_times[y][x] = time.time()
-        else:
-            self.scr.addstr(y, x, self.grass, self.grass_attr)
-            self.cut_times[y][x] = -1.0
+            self.heights[y][x] = 0
+            self.last_change[y][x] = time.time()
+            self.scr.addstr(y, x, self.height_chars[0], self.height_attrs[0])
 
     def regrow_grass(self, now):
         '''regrow a few cut blades per tick'''
@@ -149,16 +168,15 @@ class lawn:
             self.regrow_cursor = (self.regrow_cursor + 1) % total
             y = idx // self.pad_w
             x = idx - y * self.pad_w
-            cut_at = self.cut_times[y][x]
-            if cut_at < 0:
+            h = self.heights[y][x]
+            if h >= 3:
                 continue
 
-            # Deterministic jitter per cell to avoid perfectly uniform regrowth.
-            jitter_seed = (y * 1315423911 + x * 2654435761) & 0xFFFF
-            jitter = (jitter_seed / 65535.0) * self.regrow_jitter
-            if now - cut_at >= self.regrow_base + jitter:
-                self.scr.addstr(y, x, self.grass, self.grass_attr)
-                self.cut_times[y][x] = -1.0
+            if now - self.last_change[y][x] >= self.regrow_delay[y][x]:
+                h = h + 1
+                self.heights[y][x] = h
+                self.last_change[y][x] = now
+                self.scr.addstr(y, x, self.height_chars[h], self.height_attrs[h])
 
     def handle_events(self):
         c = self.scr.getch()
