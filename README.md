@@ -1,13 +1,11 @@
-# tondeuse.py
+# kosiarka.py
 
 Mow your lawn from the comfort of your terminal.
 
-[![demo](https://asciinema.org/a/21743.svg)](https://asciinema.org/a/21743?autoplay=1)
+This is a fork of tondeuse.py Python script by Jules Villard (@jvillard) that
+can be found at https://github.com/jvillard/tondeuse
 
-Use with:
+This version adds more grass height levels, regrowing grass, and eternal mowing
+(since it's constantly regrowing).
 
-```bash
-./tondeuse.py
-```
-
-See `./tondeuse.py --help` for more options.
+Check the live stream of eternal mowing at: https://asciinema.org/s/evo7zoHmtwRrpOqN
