@@ -276,8 +276,10 @@ class lawn:
             elif self.state == 'return_up':
                 dir = 1 if self.return_side == 'right' else -1
                 if dir == 1:
+                    self.mow_grass(self.y, self.x - (self.mower_size + 1))
                     self.right_mower(self.y, self.x)
                 else:
+                    self.mow_grass(self.y, self.x + self.mower_size + 1)
                     self.left_mower(self.y, self.x)
                 self.last_mower = (self.y, self.x, dir)
 
