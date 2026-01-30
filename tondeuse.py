@@ -155,6 +155,13 @@ class lawn:
             self.heights[y][x] = 0
             self.last_change[y][x] = time.time()
             self.scr.addstr(y, x, self.height_chars[0], self.height_attrs[0])
+        else:
+            h = self.heights[y][x]
+            if h > 0:
+                h = h - 1
+                self.heights[y][x] = h
+                self.last_change[y][x] = time.time()
+                self.scr.addstr(y, x, self.height_chars[h], self.height_attrs[h])
 
     def regrow_grass(self, now):
         '''regrow a few cut blades per tick'''
