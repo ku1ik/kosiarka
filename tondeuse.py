@@ -56,7 +56,7 @@ class lawn:
 
         self.grass = ';'
         self.cut_grass = ','
-        self.height_chars = ['.', ',', ';', '#']
+        self.height_chars = ['.', ',', ';', '/']
 
         # Regrowth tuning (seconds).
         self.regrow_base = 25.0
