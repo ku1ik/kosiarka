@@ -109,8 +109,8 @@ class lawn:
         self.regrow_cursor = 0
 
         # paint unmowed lawn
-        # Fill the whole pad with tall grass.
-        self.scr.bkgd(ord(self.height_chars[3]), self.height_attrs[3])
+        # Fill the whole pad with tall grass (no bold to avoid global bold).
+        self.scr.bkgd(ord(self.height_chars[3]), curses.color_pair(2))
         self.refresh_screen()
 
         # set some curses parameters
