@@ -59,8 +59,8 @@ class lawn:
         self.height_chars = ['.', ',', ';', '#']
 
         # Regrowth tuning (seconds).
-        self.regrow_base = 6.0
-        self.regrow_jitter = 1.5
+        self.regrow_base = 25.0
+        self.regrow_jitter = 7.5
         # Number of ticks to scan the whole pad once for regrowth.
         self.regrow_scan_cycles = 200
 
