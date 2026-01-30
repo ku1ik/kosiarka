@@ -67,16 +67,20 @@ class lawn:
         self.grass = ';'
         self.cut_grass = ','
 
+        # Color pairs (fg, bg) used throughout the animation.
         curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
         curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
         curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
 
         self.normal_attr = curses.color_pair(1)
         if colors:
+            # Grass is green; cut grass is a dimmer green to show it's mowed.
             self.grass_attr = curses.color_pair(2)
             self.cut_grass_attr = curses.color_pair(2) | curses.A_DIM
+            # Mower motor is red and bold to stand out.
             self.motor_attr = curses.color_pair(3) | curses.A_BOLD
         else:
+            # No-color mode: everything uses the normal attribute.
             self.grass_attr = self.normal_attr
             self.cut_grass_attr = self.normal_attr
             self.motor_attr = self.normal_attr
@@ -87,6 +91,7 @@ class lawn:
         self.init_lawn()
         
         # paint unmowed lawn
+        # Fill the whole pad with grass using the grass color attribute.
         self.scr.bkgd(ord(self.grass),self.grass_attr)
         self.refresh_screen()
 
