@@ -55,7 +55,7 @@ class lawn:
         self.miss_permyriad = miss_permyriad
 
         self.grass = ';'
-        self.cut_grass = ','
+        self.cut_grass_char = ','
         self.height_chars = ['.', ',', ';', '/']
 
         # Regrowth tuning (seconds).
@@ -148,20 +148,21 @@ class lawn:
         self.scr.addstr(y, x + 3, '.', self.normal_attr)
         self.scr.addstr(y, x + 4, '\'', self.normal_attr)
 
-    def mow_grass(self,y,x):
-        '''paint a blade of mowed grass if the mowing succeeds'''
-        
+    def mow_grass(self, y, x, max_drop):
+        '''cut a blade by up to max_drop levels (with miss chance)'''
+        if y < 0 or y >= self.pad_h or x < 0 or x >= self.pad_w:
+            return
+        h = self.heights[y][x]
+        if h <= 0:
+            return
         if self.miss_permyriad == 0 or randint(0,10000) > self.miss_permyriad:
-            self.heights[y][x] = 0
-            self.last_change[y][x] = time.time()
-            self.scr.addstr(y, x, self.height_chars[0], self.height_attrs[0])
+            h = max(h - max_drop, 0)
         else:
-            h = self.heights[y][x]
-            if h > 0:
-                h = h - 1
-                self.heights[y][x] = h
-                self.last_change[y][x] = time.time()
-                self.scr.addstr(y, x, self.height_chars[h], self.height_attrs[h])
+            h = h - 1
+        if h != self.heights[y][x]:
+            self.heights[y][x] = h
+            self.last_change[y][x] = time.time()
+            self.scr.addstr(y, x, self.height_chars[h], self.height_attrs[h])
 
     def regrow_grass(self, now):
         '''regrow a few cut blades per tick'''
@@ -246,10 +247,10 @@ class lawn:
                 dir = self.row_dir(self.y)
                 # mow some grass
                 if dir == 1:
-                    self.mow_grass(self.y, self.x - (self.mower_size + 1))
+                    self.mow_grass(self.y, self.x - (self.mower_size + 1), 3)
                     self.right_mower(self.y, self.x)
                 else:
-                    self.mow_grass(self.y, self.x + self.mower_size + 1)
+                    self.mow_grass(self.y, self.x + self.mower_size + 1, 3)
                     self.left_mower(self.y, self.x)
                 self.last_mower = (self.y, self.x, dir)
 
@@ -276,10 +277,16 @@ class lawn:
             elif self.state == 'return_up':
                 dir = 1 if self.return_side == 'right' else -1
                 if dir == 1:
-                    self.mow_grass(self.y, self.x - (self.mower_size + 1))
+                    # Cut under the motor and on both sides (one level max on sides).
+                    self.mow_grass(self.y, self.x - 2, 3)
+                    self.mow_grass(self.y, self.x - 3, 1)
+                    self.mow_grass(self.y, self.x - 1, 1)
                     self.right_mower(self.y, self.x)
                 else:
-                    self.mow_grass(self.y, self.x + self.mower_size + 1)
+                    # Cut under the motor and on both sides (one level max on sides).
+                    self.mow_grass(self.y, self.x + 2, 3)
+                    self.mow_grass(self.y, self.x + 1, 1)
+                    self.mow_grass(self.y, self.x + 3, 1)
                     self.left_mower(self.y, self.x)
                 self.last_mower = (self.y, self.x, dir)
 
