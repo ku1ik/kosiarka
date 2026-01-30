@@ -227,8 +227,14 @@ class lawn:
         self.return_side = 'right'
         self.t0 = time.time()
         self.ticks = 0
+        self.active_delay = self.delay
 
         while True:
+            current_delay = self.delay * 2 if self.state == 'return_up' else self.delay
+            if current_delay != self.active_delay:
+                self.active_delay = current_delay
+                self.t0 = time.time()
+                self.ticks = 0
             # DEBUGME: uncomment below
             # sys.stderr.write('yhxw = (%d/%d, %d/%d)\n' %
             #                  (self.y, self.garden_h, self.x, self.garden_w))
@@ -287,12 +293,12 @@ class lawn:
 
             # tick
             t = time.time()
-            while (t - self.t0 < self.delay * self.ticks):
+            while (t - self.t0 < self.active_delay * self.ticks):
                 curses.doupdate() # needed to trigger resize events
                 self.handle_events()
                 # sleep for at most .04s at a time so that resize is not too
                 # laggy
-                time.sleep(min(self.delay * self.ticks - (t - self.t0), .04))
+                time.sleep(min(self.active_delay * self.ticks - (t - self.t0), .04))
                 t = time.time()
             self.handle_events()
             now = time.time()
