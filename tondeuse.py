@@ -57,6 +57,12 @@ class lawn:
         self.grass = ';'
         self.cut_grass = ','
 
+        # Regrowth tuning (seconds).
+        self.regrow_base = 6.0
+        self.regrow_jitter = 1.5
+        # Number of ticks to scan the whole pad once for regrowth.
+        self.regrow_scan_cycles = 200
+
         # Color pairs (fg, bg) used throughout the animation.
         curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
         curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
@@ -73,7 +79,14 @@ class lawn:
         self.mower_size = 4
 
         self.init_lawn()
-        
+
+        # Track when each cell was last cut (-1 means uncut grass).
+        self.cut_times = [
+            [-1.0 for _ in range(self.pad_w)]
+            for _ in range(self.pad_h)
+        ]
+        self.regrow_cursor = 0
+
         # paint unmowed lawn
         # Fill the whole pad with grass using the grass color attribute.
         self.scr.bkgd(ord(self.grass),self.grass_attr)
@@ -88,8 +101,9 @@ class lawn:
         # the drawing pad is the screen
         # + room for the mower to go beyond the screen on the left and right
         # + room for one blade of cut grass (behind the mower) on each side
-        self.scr = curses.newpad(self.garden_h + 1,
-                                 self.garden_w + 2*self.mower_size + 2)
+        self.pad_h = self.garden_h + 1
+        self.pad_w = self.garden_w + 2*self.mower_size + 2
+        self.scr = curses.newpad(self.pad_h, self.pad_w)
 
         self.scr.nodelay(True) # non-blocking getch()
 
@@ -118,8 +132,33 @@ class lawn:
         
         if self.miss_permyriad == 0 or randint(0,10000) > self.miss_permyriad:
             self.scr.addstr(y, x, self.cut_grass, self.cut_grass_attr)
+            self.cut_times[y][x] = time.time()
         else:
             self.scr.addstr(y, x, self.grass, self.grass_attr)
+            self.cut_times[y][x] = -1.0
+
+    def regrow_grass(self, now):
+        '''regrow a few cut blades per tick'''
+        total = self.pad_h * self.pad_w
+        if total == 0:
+            return
+
+        cells_per_tick = max(1, total // self.regrow_scan_cycles)
+        for _ in range(cells_per_tick):
+            idx = self.regrow_cursor
+            self.regrow_cursor = (self.regrow_cursor + 1) % total
+            y = idx // self.pad_w
+            x = idx - y * self.pad_w
+            cut_at = self.cut_times[y][x]
+            if cut_at < 0:
+                continue
+
+            # Deterministic jitter per cell to avoid perfectly uniform regrowth.
+            jitter_seed = (y * 1315423911 + x * 2654435761) & 0xFFFF
+            jitter = (jitter_seed / 65535.0) * self.regrow_jitter
+            if now - cut_at >= self.regrow_base + jitter:
+                self.scr.addstr(y, x, self.grass, self.grass_attr)
+                self.cut_times[y][x] = -1.0
 
     def handle_events(self):
         c = self.scr.getch()
@@ -168,6 +207,7 @@ class lawn:
                 time.sleep(min(self.delay * self.ticks - (t - self.t0), .04))
                 t = time.time()
             self.handle_events()
+            self.regrow_grass(t)
             self.refresh_screen()
             self.ticks = self.ticks + 1
 
