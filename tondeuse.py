@@ -191,10 +191,6 @@ class lawn:
             return
 
         if c == ord(' '):
-            if self.finished:
-                # little hack to allow to quit on space after mowing the
-                # entire lawn
-                return True
             if self.delay == self.slow_delay:
                 self.delay = self.fast_delay
             else:
@@ -202,25 +198,92 @@ class lawn:
             self.ticks = 0
             self.t0 = time.time()
 
+    def row_dir(self, y):
+        if self.cycle_start_side == 'left':
+            return 1 if y % 2 == 0 else -1
+        return -1 if y % 2 == 0 else 1
+
+    def draw_cell(self, y, x):
+        if y < 0 or y >= self.pad_h or x < 0 or x >= self.pad_w:
+            return
+        h = self.heights[y][x]
+        self.scr.addstr(y, x, self.height_chars[h], self.height_attrs[h])
+
+    def clear_mower(self, y, x, direction):
+        if direction == 1:
+            coords = [(y, x - 4), (y, x - 3), (y, x - 2), (y, x - 1)]
+        else:
+            coords = [(y, x + 1), (y, x + 2), (y, x + 3), (y, x + 4)]
+        for cy, cx in coords:
+            self.draw_cell(cy, cx)
+
     def mow(self):
         # (self.y, self.x) is the position of the blade of grass
         # directly in front of the mower inside the pad
         (self.y, self.x) = (0, self.mower_size + 1)
-        self.finished = False
+        self.cycle_start_side = 'left'
+        self.state = 'mowing'
+        self.last_mower = None
+        self.return_side = 'right'
         self.t0 = time.time()
         self.ticks = 0
 
-        while not self.finished:
+        while True:
             # DEBUGME: uncomment below
             # sys.stderr.write('yhxw = (%d/%d, %d/%d)\n' %
             #                  (self.y, self.garden_h, self.x, self.garden_w))
-            # mow some grass
-            if self.y % 2 == 0:
-                self.mow_grass(self.y, self.x - (self.mower_size + 1))
-                self.right_mower(self.y, self.x)
-            else:
-                self.mow_grass(self.y, self.x + self.mower_size + 1)
-                self.left_mower(self.y, self.x)
+            if self.last_mower is not None:
+                (ly, lx, ldir) = self.last_mower
+                self.clear_mower(ly, lx, ldir)
+
+            if self.state == 'mowing':
+                dir = self.row_dir(self.y)
+                # mow some grass
+                if dir == 1:
+                    self.mow_grass(self.y, self.x - (self.mower_size + 1))
+                    self.right_mower(self.y, self.x)
+                else:
+                    self.mow_grass(self.y, self.x + self.mower_size + 1)
+                    self.left_mower(self.y, self.x)
+                self.last_mower = (self.y, self.x, dir)
+
+                # update the position of the lawnmower
+                self.x = self.x + dir
+
+                if dir == 1 and self.x > self.garden_w + 2*self.mower_size + 1:
+                    if self.y >= self.garden_h - 1:
+                        self.return_side = 'right'
+                        self.state = 'return_up'
+                        self.x = self.garden_w + self.mower_size
+                    else:
+                        self.y = self.y + 1
+                        self.x = self.garden_w + self.mower_size
+                elif dir == -1 and self.x < 0:
+                    if self.y >= self.garden_h - 1:
+                        self.return_side = 'left'
+                        self.state = 'return_up'
+                        self.x = self.mower_size + 1
+                    else:
+                        self.y = self.y + 1
+                        self.x = self.mower_size + 1
+
+            elif self.state == 'return_up':
+                dir = 1 if self.return_side == 'right' else -1
+                if dir == 1:
+                    self.right_mower(self.y, self.x)
+                else:
+                    self.left_mower(self.y, self.x)
+                self.last_mower = (self.y, self.x, dir)
+
+                if self.y <= 0:
+                    self.cycle_start_side = self.return_side
+                    if self.cycle_start_side == 'left':
+                        self.y, self.x = (0, self.mower_size + 1)
+                    else:
+                        self.y, self.x = (0, self.garden_w + self.mower_size)
+                    self.state = 'mowing'
+                else:
+                    self.y = self.y - 1
 
             # tick
             t = time.time()
@@ -232,24 +295,10 @@ class lawn:
                 time.sleep(min(self.delay * self.ticks - (t - self.t0), .04))
                 t = time.time()
             self.handle_events()
-            self.regrow_grass(t)
+            now = time.time()
+            self.regrow_grass(now)
             self.refresh_screen()
             self.ticks = self.ticks + 1
-
-            # update the position of the lawnmower
-            if self.y % 2 == 0:
-                self.x = self.x + 1
-            else:
-                self.x = self.x - 1
-            
-            if self.y % 2 == 0 and self.x > self.garden_w + 2*self.mower_size + 1:
-                self.y = self.y + 1
-                self.x = self.garden_w + self.mower_size
-            elif self.y % 2 == 1 and self.x < 0:
-                self.y = self.y + 1
-                self.x = self.mower_size + 1
-            if self.y >= self.garden_h:
-                self.finished = True
         
     def refresh_screen(self):
         (h, w) = self.term.getmaxyx()
